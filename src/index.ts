@@ -5,20 +5,24 @@ export type {
   Run,
   Step,
   Call,
+  StepLink,
   // Status types
   RunStatus,
   StepStatus,
   CallStatus,
+  StepLinkType,
   // Classification types
   TriggerType,
   ActorType,
-  // Store interface
+  // Store interfaces
   RunStore,
+  StepLinkStore,
   RunTrackerConfig,
   // Params
   CreateRunParams,
   CreateStepParams,
   CreateCallParams,
+  CreateStepLinkParams,
   FinishRunParams,
   FinishStepParams,
   FinishCallParams,

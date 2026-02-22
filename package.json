@@ -1,6 +1,6 @@
 {
   "name": "@systemoperator/runs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Execution tracking for workflows, syncs, and background jobs",
   "license": "MIT",
   "type": "module",

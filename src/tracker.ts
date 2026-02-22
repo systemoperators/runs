@@ -7,13 +7,16 @@
 
 import type {
   RunStore,
+  StepLinkStore,
   RunTrackerConfig,
   Run,
   Step,
   Call,
+  StepLink,
   CreateRunParams,
   CreateStepParams,
   CreateCallParams,
+  CreateStepLinkParams,
   FinishRunParams,
   FinishStepParams,
   FinishCallParams,
@@ -25,10 +28,12 @@ import { calculateDuration, mergeOutputIncrements } from './helpers';
 export class RunTracker {
   private store: RunStore;
   private generateId: () => string;
+  private linkStore: StepLinkStore | null;
 
   constructor(config: RunTrackerConfig) {
     this.store = config.store;
     this.generateId = config.generateId;
+    this.linkStore = config.linkStore ?? null;
   }
 
   // --- Runs ---
@@ -282,6 +287,32 @@ export class RunTracker {
       error: error instanceof Error ? error.message : error,
       durationMs: calculateDuration(call?.createdAt ?? null),
     });
+  }
+
+  // --- Step Links (optional) ---
+
+  /** Link a step to an entity. Returns link ID, or null if no linkStore configured. */
+  async linkStep(stepId: string, params: CreateStepLinkParams): Promise<string | null> {
+    if (!this.linkStore) return null;
+
+    const link: StepLink = {
+      id: this.generateId(),
+      stepId,
+      linkType: params.linkType,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      externalId: params.externalId ?? null,
+      createdAt: new Date(),
+    };
+
+    await this.linkStore.insertStepLink(link);
+    return link.id;
+  }
+
+  /** Get all links for a step. Returns [] if no linkStore configured. */
+  async getStepLinks(stepId: string): Promise<StepLink[]> {
+    if (!this.linkStore) return [];
+    return this.linkStore.getStepLinks(stepId);
   }
 
   // --- Convenience: execute with automatic lifecycle tracking ---

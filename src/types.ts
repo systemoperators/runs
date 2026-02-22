@@ -105,6 +105,7 @@ export interface RunStore {
 export interface RunTrackerConfig {
   store: RunStore;
   generateId: () => string;
+  linkStore?: StepLinkStore;
 }
 
 // --- Params for creating records ---
@@ -163,3 +164,32 @@ export interface StepProgress {
 
 /** Increment deltas for run output counters */
 export type OutputIncrements = Record<string, number>;
+
+// --- Step Links (optional extension) ---
+
+export type StepLinkType = 'input' | 'output' | 'affected';
+
+/** A many-to-many link between a step and an entity it touched */
+export interface StepLink {
+  id: string;
+  stepId: string;
+  linkType: StepLinkType;
+  entityType: string;
+  entityId: string;
+  externalId: string | null;
+  createdAt: Date;
+}
+
+/** Params for creating a step link */
+export interface CreateStepLinkParams {
+  linkType: StepLinkType;
+  entityType: string;
+  entityId: string;
+  externalId?: string | null;
+}
+
+/** Optional store for step links - separate from RunStore so existing implementations don't break */
+export interface StepLinkStore {
+  insertStepLink(link: StepLink): Promise<void>;
+  getStepLinks(stepId: string): Promise<StepLink[]>;
+}

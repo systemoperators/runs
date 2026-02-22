@@ -127,6 +127,38 @@ await tracker.incrementRunOutput(runId, {
 });
 ```
 
+### step links (optional)
+
+track which entities a step touched (many-to-many). implement `StepLinkStore` and pass it as `linkStore`:
+
+```typescript
+import type { StepLinkStore, StepLink } from '@systemoperator/runs';
+
+const linkStore: StepLinkStore = {
+  async insertStepLink(link: StepLink) { /* insert into your table */ },
+  async getStepLinks(stepId: string) { /* query by stepId */ },
+};
+
+const tracker = new RunTracker({
+  store: myStore,
+  generateId: () => generateId(),
+  linkStore,
+});
+
+// link a step to entities it processed
+await tracker.linkStep(stepId, {
+  linkType: 'output',
+  entityType: 'transaction',
+  entityId: 'tx_123',
+  externalId: 'stripe_ch_abc',
+});
+
+// retrieve links
+const links = await tracker.getStepLinks(stepId);
+```
+
+if `linkStore` is not provided, `linkStep()` returns null and `getStepLinks()` returns [].
+
 ## helpers
 
 ```typescript

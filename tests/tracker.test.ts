@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { RunTracker } from '../src/tracker';
-import type { RunStore, Run, Step, Call } from '../src/types';
+import type { RunStore, StepLinkStore, Run, Step, Call, StepLink } from '../src/types';
 
 // In-memory store for testing
 function createMemoryStore(): RunStore & {
@@ -400,6 +400,106 @@ describe('RunTracker', () => {
 
       const call = await store.getCall('id_3');
       expect(call?.status).toBe('success');
+    });
+  });
+
+  describe('step links', () => {
+    it('linkStep returns null when no linkStore configured', async () => {
+      const stepId = await tracker.createStep(null, { stepType: 'fetch' });
+      const result = await tracker.linkStep(stepId, {
+        linkType: 'output',
+        entityType: 'transaction',
+        entityId: 'tx_1',
+      });
+      expect(result).toBeNull();
+    });
+
+    it('getStepLinks returns [] when no linkStore configured', async () => {
+      const stepId = await tracker.createStep(null, { stepType: 'fetch' });
+      const links = await tracker.getStepLinks(stepId);
+      expect(links).toEqual([]);
+    });
+
+    describe('with linkStore', () => {
+      let linkStore: StepLinkStore & { links: Map<string, StepLink> };
+      let trackerWithLinks: RunTracker;
+
+      beforeEach(() => {
+        const links = new Map<string, StepLink>();
+
+        linkStore = {
+          links,
+          async insertStepLink(link) { links.set(link.id, { ...link }); },
+          async getStepLinks(stepId) {
+            return [...links.values()].filter(l => l.stepId === stepId);
+          },
+        };
+
+        trackerWithLinks = new RunTracker({
+          store,
+          generateId: testId,
+          linkStore,
+        });
+      });
+
+      it('linkStep inserts a link and returns its ID', async () => {
+        const stepId = await trackerWithLinks.createStep(null, { stepType: 'fetch' });
+        const linkId = await trackerWithLinks.linkStep(stepId, {
+          linkType: 'output',
+          entityType: 'transaction',
+          entityId: 'tx_1',
+          externalId: 'stripe_ch_abc',
+        });
+
+        expect(linkId).toBe('id_2');
+        expect(linkStore.links.size).toBe(1);
+
+        const link = linkStore.links.get('id_2')!;
+        expect(link.stepId).toBe(stepId);
+        expect(link.linkType).toBe('output');
+        expect(link.entityType).toBe('transaction');
+        expect(link.entityId).toBe('tx_1');
+        expect(link.externalId).toBe('stripe_ch_abc');
+        expect(link.createdAt).toBeInstanceOf(Date);
+      });
+
+      it('linkStep defaults externalId to null', async () => {
+        const stepId = await trackerWithLinks.createStep(null, { stepType: 'fetch' });
+        await trackerWithLinks.linkStep(stepId, {
+          linkType: 'input',
+          entityType: 'file',
+          entityId: 'f_1',
+        });
+
+        const link = linkStore.links.get('id_2')!;
+        expect(link.externalId).toBeNull();
+      });
+
+      it('getStepLinks returns links for a step', async () => {
+        const stepId = await trackerWithLinks.createStep(null, { stepType: 'process' });
+
+        await trackerWithLinks.linkStep(stepId, {
+          linkType: 'input',
+          entityType: 'connection',
+          entityId: 'conn_1',
+        });
+        await trackerWithLinks.linkStep(stepId, {
+          linkType: 'output',
+          entityType: 'transaction',
+          entityId: 'tx_1',
+        });
+
+        const links = await trackerWithLinks.getStepLinks(stepId);
+        expect(links).toHaveLength(2);
+        expect(links[0].linkType).toBe('input');
+        expect(links[1].linkType).toBe('output');
+      });
+
+      it('getStepLinks returns [] for step with no links', async () => {
+        const stepId = await trackerWithLinks.createStep(null, { stepType: 'empty' });
+        const links = await trackerWithLinks.getStepLinks(stepId);
+        expect(links).toEqual([]);
+      });
     });
   });
 });
